@@ -28,8 +28,19 @@ SEVERITY_RANK = """
 """
 
 
+# Free-tier containers have 512 MB and shared CPU. Left unbounded, DuckDB
+# sizes its buffer pool from the HOST's memory, not the container's cgroup
+# limit, and gets OOM-killed mid-response -- the client sees a 502 even though
+# the HTML was already correct.
+MEM_LIMIT = os.environ.get("PERIMETER_DB_MEMORY", "192MB")
+THREADS = int(os.environ.get("PERIMETER_DB_THREADS", "2"))
+
+
 def connect() -> duckdb.DuckDBPyConnection:
-    return duckdb.connect(str(DB), read_only=True)
+    con = duckdb.connect(str(DB), read_only=True)
+    con.execute(f"SET memory_limit='{MEM_LIMIT}'")
+    con.execute(f"SET threads={THREADS}")
+    return con
 
 
 def _rows(con, sql: str, params: list | None = None) -> list[dict]:
@@ -71,25 +82,13 @@ def queue(con, f: dict, limit: int = 60) -> list[dict]:
                c.industry, c.n_ips, c.n_ports, c.identity, c.page_title,
                s.fit_score, s.exposure_score, s.tier, s.rationale,
                s.size_band, s.n_findings,
-               -- Severity and rarity first, never alphabetical. The chips are
-               -- the rep's one-glance reason to open the account, so "MySQL
-               -- exposed" must beat "CVE-2007-3205" every time.
-               (SELECT string_agg(t, '|') FROM (
-                    SELECT f.title AS t,
-                           min(CASE f.severity WHEN 'critical' THEN 0
-                                               WHEN 'high' THEN 1
-                                               WHEN 'medium' THEN 2 ELSE 3 END) AS sv,
-                           min(coalesce(r.prevalence, 1)) AS pv
-                    FROM findings f
-                    LEFT JOIN finding_rarity r ON r.type = f.type
-                    WHERE f.company_id = c.company_id
-                    GROUP BY f.title
-                    ORDER BY sv ASC, pv ASC
-                    LIMIT 3)) AS top_findings,
-               (SELECT max(f.severity) FROM findings f
-                 WHERE f.company_id = c.company_id
-                   AND f.severity = 'critical')      AS has_critical
+               -- Precomputed by 07_prepare_deploy. These were two correlated
+               -- subqueries over ~1M findings per row, which cost 8-14s and an
+               -- OOM kill on a 512 MB instance. Now a join.
+               qc.top_findings,
+               qc.has_critical
         FROM scores s JOIN companies c USING (company_id)
+        LEFT JOIN queue_cache qc ON qc.company_id = c.company_id
         WHERE {where}
         ORDER BY CASE s.tier WHEN 'A' THEN 0 WHEN 'C' THEN 1
                              WHEN 'B' THEN 2 ELSE 3 END,
@@ -182,6 +181,7 @@ def segment_stats(con, f: dict) -> dict:
     tiers = _rows(con, f"""
         SELECT s.tier AS v, count(*) AS n
         FROM scores s JOIN companies c USING (company_id)
+        LEFT JOIN queue_cache qc ON qc.company_id = c.company_id
         WHERE {where} GROUP BY 1 ORDER BY 1
     """, params)
     top = _rows(con, f"""

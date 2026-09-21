@@ -90,6 +90,48 @@ def build(src: str, dst: str) -> None:
     n = con.sql("SELECT count(*) FROM company_hosts").fetchone()[0]
     print(f"  {'company_hosts':<16} {n:>10,}")
 
+    # Precompute what the queue page recomputed per row.
+    #
+    # The queue ran two correlated subqueries against `findings` for every row
+    # returned. On a laptop that is a few hundred ms; on a 512 MB shared-CPU
+    # instance it took 8-14s and got the worker OOM-killed mid-response --
+    # Render returned 502 while the HTML was already correct.
+    print("precomputing queue columns ...")
+    con.execute("""
+        CREATE TABLE queue_cache AS
+        SELECT company_id,
+               string_agg(t, '|' ORDER BY sv, pv) AS top_findings,
+               bool_or(sev = 'critical')          AS has_critical
+        FROM (
+            SELECT f.company_id, f.title AS t,
+                   min(CASE f.severity WHEN 'critical' THEN 0
+                                       WHEN 'high' THEN 1
+                                       WHEN 'medium' THEN 2 ELSE 3 END) AS sv,
+                   min(coalesce(r.prevalence, 1)) AS pv,
+                   min(f.severity)                AS sev,
+                   row_number() OVER (
+                       PARTITION BY f.company_id
+                       ORDER BY min(CASE f.severity WHEN 'critical' THEN 0
+                                                    WHEN 'high' THEN 1
+                                                    WHEN 'medium' THEN 2 ELSE 3 END),
+                                min(coalesce(r.prevalence, 1))) AS rk
+            FROM findings f
+            LEFT JOIN finding_rarity r ON r.type = f.type
+            GROUP BY f.company_id, f.title
+        ) WHERE rk <= 3
+        GROUP BY company_id
+    """)
+    con.execute("""
+        CREATE OR REPLACE TABLE queue_cache AS
+        SELECT q.company_id, q.top_findings,
+               EXISTS (SELECT 1 FROM findings f
+                       WHERE f.company_id = q.company_id
+                         AND f.severity = 'critical') AS has_critical
+        FROM queue_cache q
+    """)
+    n = con.sql("SELECT count(*) FROM queue_cache").fetchone()[0]
+    print(f"  {'queue_cache':<16} {n:>10,}")
+
     con.execute("DETACH s")
     con.close()
 
@@ -99,9 +141,10 @@ def build(src: str, dst: str) -> None:
     tmp.unlink(missing_ok=True)
     c2 = duckdb.connect(str(tmp))
     c2.execute(f"ATTACH '{dst}' AS old (READ_ONLY)")
-    for t in ("companies", "scores", "finding_rarity", "findings", "company_hosts"):
+    for t in ("companies", "scores", "finding_rarity", "findings",
+              "company_hosts", "queue_cache"):
         c2.execute(f"CREATE TABLE {t} AS SELECT * FROM old.{t}")
-    for tbl in ("findings", "scores", "companies", "company_hosts"):
+    for tbl in ("findings", "scores", "companies", "company_hosts", "queue_cache"):
         c2.execute(f"CREATE INDEX idx_{tbl}_cid ON {tbl}(company_id)")
     c2.execute("DETACH old")
     c2.close()
