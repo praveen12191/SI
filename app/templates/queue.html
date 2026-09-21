@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Queue · Perimeter{% endblock %}
+{% block body %}
+
+<div class="flex flex-wrap items-baseline gap-3 mb-1">
+  <h1 class="text-xl font-semibold text-slate-900">Today's queue</h1>
+  <span class="text-sm text-slate-500">ranked by what is broken right now, inside the ICP</span>
+</div>
+
+<div class="bg-white border border-slate-200 rounded-lg px-4">
+  <div id="rows">{% include "_rows.html" %}</div>
+</div>
+
+<p class="mt-4 text-xs text-slate-500">
+  <strong>Tier B is deliberate.</strong> Right profile, nothing urgent — the tool is telling you
+  not to spend a call there yet.
+</p>
+{% endblock %}

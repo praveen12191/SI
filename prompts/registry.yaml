@@ -1,0 +1,81 @@
+# Prompt registry.
+#
+# Prompts are plain files under prompts/<name>/v<N>.md and are always addressed
+# by explicit version -- never "latest". A trace row records the version that
+# produced it, so any decision in the product can be traced to the exact text
+# that caused it, and v1 vs v2 is a GROUP BY rather than an archaeology
+# exercise.
+#
+# `active` is what the pipeline uses. Promote only after an eval run shows no
+# regression AND anti_icp_confusion == 0.
+
+prompts:
+
+  classify-industry:
+    purpose: Assign an industry label to a resolved company from weak scan evidence.
+    model: claude-haiku-4-5
+    reason_for_model: >
+      High volume, crisp right/wrong answer, short output. Classification is
+      the canonical cheap-model task; Opus here would cost 5x for no gain.
+    active: v1
+    eval: evals/labelled/industry.jsonl
+    gate: anti_icp_confusion == 0
+    versions:
+      v1:
+        date: 2026-09-18
+        notes: >
+          Baseline. 19-industry taxonomy, explicit abstention, confidence
+          bands, and rules against inferring industry from country, city,
+          server software or the "sound" of a domain.
+        known_weaknesses:
+          - Boilerplate page titles were reaching it until clean_title() landed.
+          - Certificate subject may name a hardware vendor (FortiGate) rather
+            than the operator -- see eval ev027.
+          - Tenant-on-hosting confusion is an entity-resolution problem the
+            prompt cannot fix -- see eval ev023.
+
+  account-brief:
+    purpose: 60-110 word "why now" a rep reads before dialling.
+    model: claude-opus-5
+    reason_for_model: >
+      Synthesis and judgement, low volume, on demand. Quality is visible to a
+      customer; this is where the stronger model earns its price.
+    active: v1
+    eval: rubric (manual)
+    versions:
+      v1:
+        date: 2026-09-18
+        notes: >
+          Leads with the rarest severe finding, not the most numerous. Requires
+          a `caution` field flagging weak identification before the rep dials.
+
+  outreach-draft:
+    purpose: First-touch email grounded strictly in observed findings.
+    model: claude-opus-5
+    reason_for_model: >
+      Goes to a real prospect under the rep's name. Tone and restraint matter,
+      and the cost is trivial at on-demand volume.
+    active: v1
+    eval: evals/labelled/outreach_rubric.jsonl
+    gate: every cited_finding_id must exist in the evidence table
+    versions:
+      v1:
+        date: 2026-09-18
+        notes: >
+          Mandatory finding-id citation, enforced in code rather than trusted
+          to the prompt. Falls back to a rules-only template on violation.
+        known_weaknesses:
+          - Tone and "invented context" need an LLM judge; the other five
+            rubric criteria are deterministic.
+
+# --- Model selection policy -------------------------------------------------
+# Cheap model where the answer is crisp and the volume is high.
+# Strong model where judgement shows, and only on demand.
+#
+#   claude-haiku-4-5   $1.00 / $5.00  per MTok   classification
+#   claude-opus-5      $5.00 / $25.00 per MTok   narrative, outreach
+#
+# Production ceiling: $150/month hard cap, per-endpoint rate limit, and a
+# PERIMETER_LLM_DISABLED kill switch that degrades to rules-only output. The
+# queue ranks correctly with every model switched off -- the LLM adds language,
+# never a number a rep has to defend.

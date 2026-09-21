@@ -1,0 +1,66 @@
+{% macro tierbadge(t) %}
+  {% set m = {'A': ('bg-rose-100 text-rose-700 ring-rose-300', 'TIER A'),
+              'B': ('bg-emerald-50 text-emerald-700 ring-emerald-300', 'TIER B'),
+              'C': ('bg-amber-50 text-amber-700 ring-amber-300', 'TIER C'),
+              'D': ('bg-slate-100 text-slate-500 ring-slate-300', 'TIER D')} %}
+  {% set cls, label = m.get(t, m['D']) %}
+  <span class="px-2 py-0.5 rounded text-[11px] font-semibold ring-1 {{ cls }}">{{ label }}</span>
+{% endmacro %}
+
+{% macro bar(v, colour) %}
+  <div class="h-1.5 w-24 bg-slate-200 rounded overflow-hidden inline-block align-middle">
+    <div class="h-full {{ colour }}" style="width: {{ [v|round|int, 100]|min }}%"></div>
+  </div>
+{% endmacro %}
+
+{% if not rows %}
+  <div class="p-10 text-center text-slate-400">No accounts match these filters.</div>
+{% endif %}
+
+<ol class="divide-y divide-slate-200">
+{% for r in rows %}
+  <li class="py-4 flex flex-wrap gap-4 items-start hover:bg-white -mx-3 px-3 rounded">
+    <div class="w-8 text-right text-slate-400 mono text-sm pt-1">{{ loop.index }}</div>
+
+    <div class="flex-1 min-w-[16rem]">
+      <div class="flex items-center gap-2 flex-wrap">
+        {{ tierbadge(r.tier) }}
+        <a href="/a/{{ r.company_id | urlencode }}" class="font-medium text-slate-900 hover:underline">
+          {{ r.legal_name or r.primary_domain }}
+        </a>
+        {% if r.legal_name %}<span class="text-xs text-slate-400 mono">{{ r.primary_domain }}</span>{% endif %}
+        {% if r.has_critical %}<span class="text-xs">🔴</span>{% endif %}
+      </div>
+
+      <div class="text-xs text-slate-500 mt-1">
+        {{ r.industry or 'unclassified' }} · {{ r.country or '??' }}
+        · {{ r.n_ips }} hosts · {{ r.n_ports }} ports
+        {% if r.identity == 'org' %}
+          <span class="text-amber-600" title="Identified by organisation name, not domain">· weak id</span>
+        {% endif %}
+      </div>
+
+      {% if r.top_findings %}
+      <div class="mt-2 flex flex-wrap gap-1">
+        {% for t in r.top_findings.split('|')[:3] %}
+          <span class="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{{ t }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if r.tier == 'B' %}
+        <div class="mt-2 text-xs text-emerald-700">▸ {{ r.rationale }}</div>
+      {% endif %}
+    </div>
+
+    <div class="text-xs mono text-slate-600 space-y-1 pt-1">
+      <div>fit {{ bar(r.fit_score, 'bg-sky-500') }} <span class="inline-block w-7 text-right">{{ r.fit_score|round|int }}</span></div>
+      <div>exp {{ bar(r.exposure_score, 'bg-rose-500') }} <span class="inline-block w-7 text-right">{{ r.exposure_score|round|int }}</span></div>
+      <div class="text-slate-400">{{ r.n_findings }} findings</div>
+    </div>
+
+    <a href="/a/{{ r.company_id | urlencode }}"
+       class="text-xs px-3 py-1.5 rounded bg-slate-900 text-white hover:bg-slate-700 self-center">Open →</a>
+  </li>
+{% endfor %}
+</ol>

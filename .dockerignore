@@ -1,0 +1,13 @@
+.venv/
+data/raw/
+data/out/*.jsonl.gz
+data/out/scan*
+data/out/perimeter.duckdb
+data/out/traces.sqlite
+evals/
+docs/
+pipeline/
+__pycache__/
+*.pyc
+.git/
+.DS_Store

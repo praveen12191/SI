@@ -1,0 +1,27 @@
+<div class="text-3xl font-semibold text-slate-900">{{ "{:,}".format(seg.total) }}</div>
+<div class="text-xs text-slate-500 mb-4">accounts match</div>
+
+<div class="space-y-1">
+{% for t in seg.tiers %}
+  {% set pct = (t.n / seg.total * 100) if seg.total else 0 %}
+  <div class="flex items-center gap-2 text-sm">
+    <span class="w-14 text-slate-500">Tier {{ t.v }}</span>
+    <div class="flex-1 h-3 bg-slate-100 rounded overflow-hidden">
+      <div class="h-full {% if t.v=='A' %}bg-rose-500{% elif t.v=='B' %}bg-emerald-500
+                  {% elif t.v=='C' %}bg-amber-500{% else %}bg-slate-400{% endif %}"
+           style="width: {{ pct }}%"></div>
+    </div>
+    <span class="mono text-xs w-20 text-right">{{ "{:,}".format(t.n) }} ({{ pct|round|int }}%)</span>
+  </div>
+{% endfor %}
+</div>
+
+<h3 class="mt-6 mb-2 text-xs font-semibold tracking-wide text-slate-500">TOP FINDINGS IN THIS SEGMENT</h3>
+<div class="space-y-1 text-sm">
+{% for f in seg.top_findings %}
+  <div class="flex justify-between gap-2">
+    <span class="text-slate-600">{{ f.v.replace('_',' ') }}</span>
+    <span class="mono text-slate-500">{{ "{:,}".format(f.n) }}</span>
+  </div>
+{% endfor %}
+</div>

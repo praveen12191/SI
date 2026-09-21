@@ -1,0 +1,20 @@
+{% if error %}
+  <div class="text-sm bg-rose-50 border border-rose-200 text-rose-800 rounded px-3 py-2">
+    {{ error }}
+  </div>
+{% elif draft and draft.insufficient_evidence %}
+  <div class="text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded px-3 py-2">
+    Evidence too thin for a specific opening — no draft written.
+    A generic email is worse than none.
+  </div>
+{% elif draft %}
+  <div class="border border-slate-200 rounded bg-slate-50 p-3">
+    <div class="font-medium text-slate-900">{{ draft.subject }}</div>
+    <div class="mt-2 whitespace-pre-line text-sm text-slate-700">{{ draft.body }}</div>
+  </div>
+  <div class="mt-2 text-xs text-slate-500">
+    cites {{ draft.cited_finding_ids|length }} verified finding(s)
+    {% if cost %}· ${{ '%.4f'|format(cost) }} · {{ latency }}ms{% endif %}
+    {% if draft.reasoning %}<br>↳ {{ draft.reasoning }}{% endif %}
+  </div>
+{% endif %}

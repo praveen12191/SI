@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: perimeter
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: PERIMETER_DB
+        value: /app/data/out/perimeter-deploy.duckdb
+      # Rules-only mode: the ranking is pure arithmetic and needs no model.
+      # Set to 0 and add ANTHROPIC_API_KEY to enable outreach drafting.
+      - key: PERIMETER_LLM_DISABLED
+        value: "1"

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Segments · Perimeter{% endblock %}
+{% block body %}
+<h1 class="text-xl font-semibold text-slate-900 mb-1">Segments</h1>
+<p class="text-sm text-slate-500 mb-4">Carve a territory, see its shape, then work it in the queue.</p>
+
+<div class="grid md:grid-cols-[18rem_1fr] gap-4">
+  <form hx-get="/segments/stats" hx-target="#segstats" hx-trigger="change"
+        class="bg-white border border-slate-200 rounded-lg p-4 space-y-3 text-sm self-start">
+    {% for name, label, opts in [('country','Country', facets.countries),
+                                 ('industry','Industry', facets.industries)] %}
+    <label class="flex flex-col gap-1">
+      <span class="text-xs text-slate-500">{{ label }}</span>
+      <select name="{{ name }}" class="border border-slate-300 rounded px-2 py-1">
+        <option value="">any</option>
+        {% for o in opts %}
+        <option value="{{ o.v }}" {% if filters[name] == o.v %}selected{% endif %}>{{ o.v }} ({{ o.n }})</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% endfor %}
+
+    <label class="flex flex-col gap-1">
+      <span class="text-xs text-slate-500">Must have finding</span>
+      <select name="finding_type" class="border border-slate-300 rounded px-2 py-1">
+        <option value="">any</option>
+        {% for f in facets.finding_types %}
+        <option value="{{ f.v }}" {% if filters.finding_type == f.v %}selected{% endif %}>
+          {{ f.v.replace('_',' ') }} — {{ (f.prevalence*100)|round(2) }}%</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label class="flex flex-col gap-1">
+      <span class="text-xs text-slate-500">Min exposure</span>
+      <input type="number" name="min_exposure" min="0" max="100" step="5"
+             value="{{ filters.min_exposure or '' }}" placeholder="0"
+             class="border border-slate-300 rounded px-2 py-1">
+    </label>
+
+    <a href="/segments" class="block text-xs text-slate-500 hover:underline">reset</a>
+  </form>
+
+  <div class="bg-white border border-slate-200 rounded-lg p-5">
+    <div id="segstats">{% include "_segstats.html" %}</div>
+    <a href="/?{{ filters|urlencode }}"
+       class="inline-block mt-6 text-sm px-3 py-1.5 rounded bg-slate-900 text-white hover:bg-slate-700">
+      Work this segment in the queue →
+    </a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{% block title %}Perimeter{% endblock %}</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/1.9.12/htmx.min.js"></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-feature-settings: "tnum"; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+</style>
+</head>
+<body class="h-full bg-slate-50 text-slate-800">
+
+<header class="bg-slate-900 text-slate-100">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center gap-4">
+    <a href="/" class="font-semibold tracking-tight text-lg">
+      <span class="text-emerald-400">◈</span> Perimeter
+    </a>
+    <nav class="flex gap-1 text-sm">
+      {% for href, label in [('/', 'Queue'), ('/segments', 'Segments'), ('/ops', 'Ops')] %}
+      <a href="{{ href }}"
+         class="px-3 py-1.5 rounded hover:bg-slate-700
+                {% if request.url.path == href %}bg-slate-700{% endif %}">{{ label }}</a>
+      {% endfor %}
+    </nav>
+    <div class="ml-auto text-xs text-slate-400 mono">
+      {% if stats %}
+      {{ "{:,}".format(stats.companies) }} companies ·
+      {{ "{:,}".format(stats.findings) }} findings ·
+      scan {{ (stats.scan_date or '')|string|truncate(10, true, '') }}
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 py-6">
+  {% block body %}{% endblock %}
+</main>
+
+<footer class="max-w-7xl mx-auto px-4 py-8 text-xs text-slate-400">
+  Evidence is from a single public internet scan. Company size and industry are
+  <strong>inferred</strong> from observed infrastructure, not from any company record.
+</footer>
+</body>
+</html>

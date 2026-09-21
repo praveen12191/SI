@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}{{ c.legal_name or c.primary_domain }} · Perimeter{% endblock %}
+{% block body %}
+
+{% set sevcls = {'critical':'bg-rose-100 text-rose-700','high':'bg-orange-100 text-orange-700',
+                 'medium':'bg-amber-100 text-amber-700','low':'bg-slate-100 text-slate-600',
+                 'info':'bg-sky-50 text-sky-700'} %}
+
+<a href="/" class="text-sm text-slate-500 hover:underline">← Queue</a>
+
+<div class="mt-2 flex flex-wrap items-center gap-3">
+  <h1 class="text-2xl font-semibold text-slate-900">{{ c.legal_name or c.primary_domain }}</h1>
+  <span class="px-2 py-0.5 rounded text-xs font-semibold ring-1
+    {% if c.tier=='A' %}bg-rose-100 text-rose-700 ring-rose-300
+    {% elif c.tier=='B' %}bg-emerald-50 text-emerald-700 ring-emerald-300
+    {% elif c.tier=='C' %}bg-amber-50 text-amber-700 ring-amber-300
+    {% else %}bg-slate-100 text-slate-500 ring-slate-300{% endif %}">TIER {{ c.tier }}</span>
+</div>
+
+<div class="text-sm text-slate-500 mt-1">
+  <span class="mono">{{ c.primary_domain }}</span> ·
+  {{ c.country or '??' }}{% if c.city %}, {{ c.city }}{% endif %} ·
+  <span title="Inferred from observed infrastructure, not a company record">
+    {{ c.industry or 'unclassified' }} <span class="text-slate-400">(inferred)</span></span> ·
+  {{ c.size_band }} · observed {{ (c.last_seen or '')|string|truncate(10, true, '') }}
+</div>
+
+{% if c.identity == 'org' %}
+<div class="mt-3 text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded px-3 py-2">
+  ⚠️ Identified by <strong>organisation name</strong>, not a registered domain. Confirm who you
+  are talking to before dialling — this may be shared infrastructure.
+</div>
+{% endif %}
+
+<!-- scores -->
+<div class="grid md:grid-cols-2 gap-4 mt-5">
+  {% for key, label, colour in [('fit','FIT','bg-sky-500'), ('exposure','EXPOSURE','bg-rose-500')] %}
+  {% set val = c.fit_score if key=='fit' else c.exposure_score %}
+  <div class="bg-white border border-slate-200 rounded-lg p-4">
+    <div class="flex items-baseline justify-between">
+      <span class="text-xs tracking-wide text-slate-500">{{ label }}</span>
+      <span class="text-2xl font-semibold">{{ (val or 0)|round|int }}</span>
+    </div>
+    <div class="h-2 bg-slate-200 rounded mt-2 overflow-hidden">
+      <div class="h-full {{ colour }}" style="width: {{ [(val or 0)|round|int, 100]|min }}%"></div>
+    </div>
+    <div class="mt-3 space-y-1 text-xs">
+      {% if key == 'fit' %}
+        {% for p in (c.breakdown.fit.components if c.breakdown and c.breakdown.fit else []) %}
+        <div class="flex justify-between gap-2">
+          <span class="text-slate-600">{{ p.label }} <span class="text-slate-400">— {{ p.why }}</span></span>
+          <span class="mono {% if p.points < 0 %}text-rose-600{% else %}text-slate-700{% endif %}">
+            {{ '%+d'|format(p.points) }}</span>
+        </div>
+        {% endfor %}
+      {% else %}
+        {% for cat, d in (c.breakdown.exposure.categories.items() if c.breakdown and c.breakdown.exposure else []) %}
+        <div class="flex justify-between gap-2">
+          <span class="text-slate-600">{{ cat.replace('_',' ') }}
+            {% if d.was_capped %}<span class="text-amber-600" title="raw {{ d.raw }} capped at {{ d.capped_at }}">(capped)</span>{% endif %}
+          </span>
+          <span class="mono text-slate-700">{{ d.awarded }}</span>
+        </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="mt-3 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg px-4 py-3">
+  ▸ {{ c.rationale }}
+</div>
+
+<!-- evidence -->
+<h2 class="mt-7 mb-2 text-sm font-semibold tracking-wide text-slate-500">
+  EVIDENCE — {{ findings|length }} findings, each traceable to a scan record
+</h2>
+<div class="bg-white border border-slate-200 rounded-lg overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="text-xs text-slate-500 border-b border-slate-200">
+      <tr><th class="text-left p-2">SEV</th><th class="text-left p-2">PORT</th>
+          <th class="text-left p-2">FINDING</th><th class="text-left p-2">CVSS</th>
+          <th class="text-left p-2">EVIDENCE</th></tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+    {% for f in findings %}
+      <tr class="align-top">
+        <td class="p-2"><span class="px-1.5 py-0.5 rounded text-[11px] {{ sevcls.get(f.severity,'') }}">{{ f.severity }}</span></td>
+        <td class="p-2 mono text-slate-500">{{ f.port or '—' }}</td>
+        <td class="p-2">{{ f.title }}</td>
+        <td class="p-2 mono">{{ f.cvss or '—' }}</td>
+        <td class="p-2 text-xs text-slate-500 mono">{{ f.evidence }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="p-6 text-center text-slate-400">No findings.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- surface -->
+<h2 class="mt-7 mb-2 text-sm font-semibold tracking-wide text-slate-500">
+  ATTACK SURFACE — {{ c.n_ips }} hosts, {{ c.n_ports }} ports, {{ c.n_asns }} networks
+</h2>
+<div class="bg-white border border-slate-200 rounded-lg overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="text-xs text-slate-500 border-b border-slate-200">
+      <tr><th class="text-left p-2">IP</th><th class="text-left p-2">PORTS</th>
+          <th class="text-left p-2">PROVIDER</th><th class="text-left p-2">SOFTWARE</th></tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+    {% for h in hosts %}
+      <tr><td class="p-2 mono">{{ h.ip }}</td>
+          <td class="p-2 mono text-xs">{{ h.ports }}</td>
+          <td class="p-2 text-xs text-slate-500">{{ h.org }}</td>
+          <td class="p-2 text-xs text-slate-500">{{ h.products or '—' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- outreach -->
+<h2 class="mt-7 mb-2 text-sm font-semibold tracking-wide text-slate-500">OUTREACH</h2>
+<div class="bg-white border border-slate-200 rounded-lg p-4">
+  <button hx-post="/a/{{ c.company_id | urlencode }}/outreach" hx-target="#outreach" hx-swap="innerHTML"
+          hx-indicator="#spin"
+          class="text-sm px-3 py-1.5 rounded bg-slate-900 text-white hover:bg-slate-700">
+    Generate draft
+  </button>
+  <span id="spin" class="htmx-indicator text-xs text-slate-400 ml-2">drafting…</span>
+  <div id="outreach" class="mt-3"></div>
+  <p class="mt-3 text-xs text-slate-500">
+    Every claim must cite a finding above. Drafts citing anything else are discarded in code.
+  </p>
+</div>
+{% endblock %}

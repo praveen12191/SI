@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Ops · Perimeter{% endblock %}
+{% block body %}
+<h1 class="text-xl font-semibold text-slate-900 mb-4">Ops</h1>
+
+<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+  {% for label, val in [('Observations', stats.observations), ('Companies', stats.companies),
+                        ('Findings', stats.findings), ('Tier A', stats.tier_a)] %}
+  <div class="bg-white border border-slate-200 rounded-lg p-4">
+    <div class="text-xs text-slate-500">{{ label }}</div>
+    <div class="text-2xl font-semibold mono">{{ "{:,}".format(val or 0) }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<h2 class="text-sm font-semibold tracking-wide text-slate-500 mb-2">
+  LLM CALLS {% if llm_disabled %}<span class="text-amber-600">— DISABLED (rules-only mode)</span>{% endif %}
+</h2>
+<div class="bg-white border border-slate-200 rounded-lg p-4 mb-6">
+  <div class="text-sm mb-3">
+    <span class="mono text-lg">${{ '%.4f'|format(llm.total_cost or 0) }}</span>
+    <span class="text-slate-500">across {{ "{:,}".format(llm.total_calls or 0) }} calls</span>
+  </div>
+  <table class="w-full text-sm">
+    <thead class="text-xs text-slate-500 border-b border-slate-200">
+      <tr><th class="text-left p-1">FEATURE</th><th class="text-left p-1">PROMPT</th>
+          <th class="text-left p-1">MODEL</th><th class="text-right p-1">CALLS</th>
+          <th class="text-right p-1">COST</th><th class="text-right p-1">p50</th>
+          <th class="text-right p-1">FAILED</th></tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+    {% for r in llm.rows %}
+      <tr><td class="p-1">{{ r.feature }}</td><td class="p-1 mono">{{ r.prompt_version }}</td>
+          <td class="p-1 mono text-xs">{{ r.model }}</td>
+          <td class="p-1 text-right mono">{{ r.calls }}</td>
+          <td class="p-1 text-right mono">${{ '%.4f'|format(r.cost or 0) }}</td>
+          <td class="p-1 text-right mono">{{ r.p50_ms or 0 }}ms</td>
+          <td class="p-1 text-right mono {% if r.failed %}text-rose-600{% endif %}">{{ r.failed }}</td></tr>
+    {% else %}
+      <tr><td colspan="7" class="p-4 text-center text-slate-400">No calls traced yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2 class="text-sm font-semibold tracking-wide text-slate-500 mb-2">EVAL RESULTS</h2>
+<div class="bg-white border border-slate-200 rounded-lg p-4 mb-6">
+  {% if evals %}
+  <table class="w-full text-sm">
+    <thead class="text-xs text-slate-500 border-b border-slate-200">
+      <tr><th class="text-left p-1">VERSION</th><th class="text-right p-1">COVERAGE</th>
+          <th class="text-right p-1">PRECISION</th><th class="text-right p-1">RECALL</th>
+          <th class="text-right p-1">ANTI-ICP</th></tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+    {% for e in evals %}
+      <tr><td class="p-1 mono">{{ e.version }}</td>
+          <td class="p-1 text-right mono">{{ e.coverage }}</td>
+          <td class="p-1 text-right mono">{{ e.precision }}</td>
+          <td class="p-1 text-right mono">{{ e.recall }}</td>
+          <td class="p-1 text-right mono {% if e.anti_icp_confusion %}text-rose-600 font-semibold{% endif %}">
+            {{ e.anti_icp_confusion }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p class="text-sm text-slate-400">No eval runs yet — <span class="mono">python3 evals/run_evals.py --version v1</span></p>
+  {% endif %}
+</div>
+
+<h2 class="text-sm font-semibold tracking-wide text-slate-500 mb-2">
+  FINDING PREVALENCE <span class="font-normal normal-case">— rarer means more valuable to a rep</span>
+</h2>
+<div class="bg-white border border-slate-200 rounded-lg p-4 space-y-1">
+{% for f in rarity %}
+  <div class="flex items-center gap-2 text-sm">
+    <span class="w-52 text-slate-600 text-xs">{{ f.v.replace('_',' ') }}</span>
+    <div class="flex-1 h-2.5 bg-slate-100 rounded overflow-hidden">
+      <div class="h-full bg-slate-400" style="width: {{ [(f.prevalence*100)*3, 100]|min }}%"></div>
+    </div>
+    <span class="mono text-xs w-32 text-right">{{ "{:,}".format(f.n) }} · {{ (f.prevalence*100)|round(2) }}%</span>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}
