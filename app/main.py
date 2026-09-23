@@ -33,7 +33,7 @@ def _filters(request: Request) -> dict:
     p = request.query_params
     return {k: p.get(k) for k in
             ("country", "industry", "tier", "min_exposure", "finding_type",
-             "product", "q")
+             "product", "min_count", "q")
             if p.get(k)}
 
 

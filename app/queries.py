@@ -70,10 +70,23 @@ def _where(f: dict) -> tuple[str, list]:
     if f.get("min_exposure"):
         clauses.append("s.exposure_score >= ?")
         params.append(float(f["min_exposure"]))
+    # `min_count` means "at least N of them". Paired with a finding_type it
+    # counts that type ("at least 2 CVEs"); alone it counts all findings.
+    # Defaults to 1, so picking a type with no count still means "has one".
+    try:
+        min_count = max(1, int(f.get("min_count") or 1))
+    except (TypeError, ValueError):
+        min_count = 1
+
     if f.get("finding_type"):
-        clauses.append("""EXISTS (SELECT 1 FROM findings ff
-                          WHERE ff.company_id = c.company_id AND ff.type = ?)""")
-        params.append(f["finding_type"])
+        clauses.append("""(SELECT count(*) FROM findings ff
+                           WHERE ff.company_id = c.company_id
+                             AND ff.type = ?) >= ?""")
+        params += [f["finding_type"], min_count]
+    elif min_count > 1:
+        # No type chosen -- use the denormalised total, which is free.
+        clauses.append("s.n_findings >= ?")
+        params.append(min_count)
     if f.get("q"):
         clauses.append("(c.primary_domain ILIKE ? OR c.legal_name ILIKE ?)")
         params += [f"%{f['q']}%"] * 2

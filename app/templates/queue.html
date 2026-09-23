@@ -11,7 +11,7 @@
    place, so changing a filter never reloads the page. #}
 <form hx-get="/rows" hx-target="#rows" hx-trigger="change, search"
       class="bg-white border border-slate-200 rounded-lg p-3 my-4 text-sm
-             grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 items-end">
+             grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 items-end">
 
   <label class="flex flex-col gap-1">
     <span class="text-xs text-slate-500">Search</span>
@@ -73,6 +73,24 @@
     </select>
   </label>
 
+  {# Label names what is being counted, so "at least 2" is never ambiguous. #}
+  <label class="flex flex-col gap-1">
+    <span class="text-xs text-slate-500">
+      at least
+      <span class="text-slate-400">({{ filters.finding_type.replace('_', ' ')
+                                       if filters.finding_type else 'findings' }})</span>
+    </span>
+    {# No `max`: HTMX drops fields that fail HTML5 validation, so a capped
+       input silently sent the request WITHOUT this filter -- the user saw a
+       number in the box and unfiltered results, and reasonably concluded the
+       filter was broken. Better that any value is sent and an impossible one
+       honestly returns "no accounts match". (Real maximum is 32,942, so the
+       old max=500 was wrong regardless.) #}
+    <input type="number" name="min_count" min="1" step="1"
+           value="{{ filters.min_count or '' }}" placeholder="1"
+           class="border border-slate-300 rounded px-2 py-1 w-full">
+  </label>
+
   <div class="flex flex-wrap items-center gap-3 lg:col-span-6 pt-1">
     <label class="flex items-center gap-2">
       <span class="text-xs text-slate-500">Min exposure</span>
@@ -83,9 +101,6 @@
     {% if filters %}
     <a href="/" class="text-xs text-slate-500 hover:underline">reset all</a>
     {% endif %}
-    <p class="text-xs text-slate-400 ml-auto">
-      The morning a CVE lands for a product, the product filter is the call list.
-    </p>
   </div>
 </form>
 
