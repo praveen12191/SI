@@ -7,9 +7,25 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/1.9.12/htmx.min.js"></script>
 <style>
-  :root { color-scheme: light dark; }
+  /* This design is light-only (slate-50 page, white cards). Declaring
+     "light dark" made the browser render NATIVE form controls using the OS
+     dark theme, so on a Mac in dark mode the selects came out black-on-black
+     and unreadable while everything around them stayed white. */
+  :root { color-scheme: light; }
+
   body { font-feature-settings: "tnum"; }
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  /* Belt and braces: pin the colours explicitly so the controls are readable
+     even if a browser or extension overrides color-scheme. */
+  select, input, option, textarea {
+    background-color: #ffffff;
+    color: #1e293b;               /* slate-800 */
+  }
+  select:focus, input:focus {
+    outline: 2px solid #0ea5e9;   /* sky-500 */
+    outline-offset: 1px;
+  }
 </style>
 </head>
 <body class="h-full bg-slate-50 text-slate-800">

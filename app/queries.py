@@ -61,6 +61,12 @@ def _where(f: dict) -> tuple[str, list]:
     if f.get("tier"):
         clauses.append("s.tier = ?")
         params.append(f["tier"])
+    if f.get("product"):
+        # `products` is a LIST column -- a company runs several -- so this is
+        # membership, not equality. It answers the question a rep has the
+        # morning a CVE drops: "who do we know runs this?"
+        clauses.append("list_contains(c.products, ?)")
+        params.append(f["product"])
     if f.get("min_exposure"):
         clauses.append("s.exposure_score >= ?")
         params.append(float(f["min_exposure"]))
@@ -164,6 +170,14 @@ def facets(con) -> dict:
             SELECT coalesce(c.industry, 'unclassified') AS v, count(*) AS n
             FROM scores s JOIN companies c USING (company_id)
             GROUP BY 1 ORDER BY n DESC LIMIT 25
+        """),
+        # unnest because products is a LIST. HAVING drops one-off junk from
+        # ~1,500 distinct banner strings; LIMIT keeps the dropdown usable.
+        "products": _rows(con, """
+            SELECT p AS v, count(*) AS n FROM (
+                SELECT unnest(c.products) AS p
+                FROM scores s JOIN companies c USING (company_id)
+            ) GROUP BY 1 HAVING count(*) >= 5 ORDER BY n DESC LIMIT 120
         """),
         "finding_types": _rows(con, """
             SELECT type AS v, n_companies AS n, prevalence

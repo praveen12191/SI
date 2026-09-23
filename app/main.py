@@ -32,7 +32,8 @@ LLM_DISABLED = os.environ.get("PERIMETER_LLM_DISABLED") == "1"
 def _filters(request: Request) -> dict:
     p = request.query_params
     return {k: p.get(k) for k in
-            ("country", "industry", "tier", "min_exposure", "finding_type", "q")
+            ("country", "industry", "tier", "min_exposure", "finding_type",
+             "product", "q")
             if p.get(k)}
 
 

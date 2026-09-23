@@ -7,6 +7,88 @@
   <span class="text-sm text-slate-500">ranked by what is broken right now, inside the ICP</span>
 </div>
 
+{# Filters post to /rows, which returns only the list -- HTMX swaps it in
+   place, so changing a filter never reloads the page. #}
+<form hx-get="/rows" hx-target="#rows" hx-trigger="change, search"
+      class="bg-white border border-slate-200 rounded-lg p-3 my-4 text-sm
+             grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 items-end">
+
+  <label class="flex flex-col gap-1">
+    <span class="text-xs text-slate-500">Search</span>
+    <input type="search" name="q" value="{{ filters.q or '' }}"
+           placeholder="domain or name"
+           class="border border-slate-300 rounded px-2 py-1 w-full">
+  </label>
+
+  <label class="flex flex-col gap-1">
+    <span class="text-xs text-slate-500">Country</span>
+    <select name="country" class="border border-slate-300 rounded px-2 py-1 w-full">
+      <option value="">any</option>
+      {% for c in facets.countries %}
+      <option value="{{ c.v }}" {% if filters.country == c.v %}selected{% endif %}>{{ c.v }} ({{ "{:,}".format(c.n) }})</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label class="flex flex-col gap-1">
+    <span class="text-xs text-slate-500">Industry</span>
+    <select name="industry" class="border border-slate-300 rounded px-2 py-1 w-full">
+      <option value="">any</option>
+      {% for i in facets.industries %}
+      <option value="{{ i.v }}" {% if filters.industry == i.v %}selected{% endif %}>{{ i.v }} ({{ "{:,}".format(i.n) }})</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label class="flex flex-col gap-1">
+    <span class="text-xs text-slate-500">Tier</span>
+    <select name="tier" class="border border-slate-300 rounded px-2 py-1 w-full">
+      <option value="">all</option>
+      {% for t, lbl in [('A', 'A — call now'), ('B', 'B — nurture'),
+                        ('C', 'C — qualify'), ('D', 'D — suppressed')] %}
+      <option value="{{ t }}" {% if filters.tier == t %}selected{% endif %}>{{ lbl }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  {# The product filter is the "a CVE just dropped for X" query. #}
+  <label class="flex flex-col gap-1">
+    <span class="text-xs text-slate-500">Software / product</span>
+    <select name="product" class="border border-slate-300 rounded px-2 py-1 w-full">
+      <option value="">any</option>
+      {% for p in facets.products %}
+      <option value="{{ p.v }}" {% if filters.product == p.v %}selected{% endif %}>{{ p.v }} ({{ "{:,}".format(p.n) }})</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  {# Ordered rarest-first: the rare findings are the ones worth calling about. #}
+  <label class="flex flex-col gap-1">
+    <span class="text-xs text-slate-500">Finding <span class="text-slate-400">(rarest first)</span></span>
+    <select name="finding_type" class="border border-slate-300 rounded px-2 py-1 w-full">
+      <option value="">any</option>
+      {% for f in facets.finding_types %}
+      <option value="{{ f.v }}" {% if filters.finding_type == f.v %}selected{% endif %}>{{ f.v.replace('_', ' ') }} — {{ (f.prevalence * 100)|round(2) }}%</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <div class="flex flex-wrap items-center gap-3 lg:col-span-6 pt-1">
+    <label class="flex items-center gap-2">
+      <span class="text-xs text-slate-500">Min exposure</span>
+      <input type="number" name="min_exposure" min="0" max="100" step="5"
+             value="{{ filters.min_exposure or '' }}" placeholder="0"
+             class="border border-slate-300 rounded px-2 py-1 w-20">
+    </label>
+    {% if filters %}
+    <a href="/" class="text-xs text-slate-500 hover:underline">reset all</a>
+    {% endif %}
+    <p class="text-xs text-slate-400 ml-auto">
+      The morning a CVE lands for a product, the product filter is the call list.
+    </p>
+  </div>
+</form>
+
 <div class="bg-white border border-slate-200 rounded-lg px-4">
   <div id="rows">{% include "_rows.html" %}</div>
 </div>
